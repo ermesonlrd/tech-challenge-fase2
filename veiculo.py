@@ -4,4 +4,3 @@ class Veiculo:
         self.capacidade = capacidade        
         self.ano = ano
         self.modelo = modelo
-

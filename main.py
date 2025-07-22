@@ -48,8 +48,8 @@ for generation in range(N_GENERATIONS):
     new_population += generate_random_population(population_size=RANDOM_POPULATION_SIZE, veiculos=veiculos, locais=locais)
     while len(new_population) < POPULATION_SIZE:
         parent1, parent2 = random.choices(population, weights=selection_probs, k=2)
-        child = random.choice([parent1, parent2])
-        # child = parent1.crossover(partner=parent2)
+        # child = random.choice([parent1, parent2])
+        child = parent1.crossover(partner=parent2)
         # child.mutate(mutation_rate=MUTATION_RATE)        
         new_population.append(child)
 

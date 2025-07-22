@@ -134,84 +134,84 @@ class Genoma:
         self.fitness = self.distancia_percorrida_total + (self.demanda_pendente_total * PENALIDADE_DEMANDA) + (self.capacidade_ociosa_total * PENALIDADE_CAPACIDADE)
         return self.fitness
 
-    # def crossover(self, partner: 'Genoma') -> 'Genoma':
-    #     """
-    #     Realiza o crossover entre dois genomas, combinando suas rotas de forma randômica e equitativa.
+    def crossover(self, partner: 'Genoma') -> 'Genoma':
+        """
+        Realiza o crossover entre dois genomas, combinando suas rotas de forma randômica e equitativa.
         
-    #     Args:
-    #         partner: Outro genoma para realizar o crossover
+        Args:
+            partner: Outro genoma para realizar o crossover
             
-    #     Returns:
-    #         Novo genoma resultante da combinação
-    #     """
-    #     # Obtém todos os veículos únicos dos dois genomas
-    #     all_vehicles = set(self.routes.keys()) | set(partner.routes.keys())
-    #     child_routes = {}
+        Returns:
+            Novo genoma resultante da combinação
+        """
+        # Obtém todos os veículos únicos dos dois genomas
+        all_vehicles = set(self.routes.keys()) | set(partner.routes.keys())
+        child_routes = {}
         
-    #     for vehicle in all_vehicles:
-    #         # Verifica se o veículo existe em ambos os genomas
-    #         self_route = self.routes.get(vehicle, [])
-    #         partner_route = partner.routes.get(vehicle, [])
+        for vehicle in all_vehicles:
+            # Verifica se o veículo existe em ambos os genomas
+            self_route = self.routes.get(vehicle, [])
+            partner_route = partner.routes.get(vehicle, [])
             
-    #         if not self_route and not partner_route:
-    #             # Veículo não existe em nenhum dos genomas
-    #             continue
-    #         elif not self_route:
-    #             # Veículo só existe no partner
-    #             child_routes[vehicle] = partner_route.copy()
-    #         elif not partner_route:
-    #             # Veículo só existe no self
-    #             child_routes[vehicle] = self_route.copy()
-    #         else:
-    #             # Veículo existe em ambos - combina as rotas
-    #             child_routes[vehicle] = self._combine_routes(self_route, partner_route)
+            if not self_route and not partner_route:
+                # Veículo não existe em nenhum dos genomas
+                continue
+            elif not self_route:
+                # Veículo só existe no partner
+                child_routes[vehicle] = partner_route.copy()
+            elif not partner_route:
+                # Veículo só existe no self
+                child_routes[vehicle] = self_route.copy()
+            else:
+                # Veículo existe em ambos - combina as rotas
+                child_routes[vehicle] = self._combine_routes(self_route, partner_route)
         
-    #     # Usa o local_inicial do primeiro genoma (pode ser aleatório também)
-    #     local_inicial = self.local_inicial
+        # Usa o local_inicial do primeiro genoma (pode ser aleatório também)
+        local_inicial = self.local_inicial
         
-    #     # Cria o novo genoma
-    #     child = Genoma(routes=child_routes, local_inicial=local_inicial)
+        # Cria o novo genoma
+        child = Genoma(routes=child_routes, local_inicial=local_inicial)
         
-    #     return child
+        return child
     
-    # def _combine_routes(self, route1: List[Local], route2: List[Local]) -> List[Local]:
-    #     """
-    #     Combina duas rotas de forma randômica e equitativa.
+    def _combine_routes(self, route1: List[Local], route2: List[Local]) -> List[Local]:
+        """
+        Combina duas rotas de forma randômica e equitativa.
         
-    #     Args:
-    #         route1: Primeira rota
-    #         route2: Segunda rota
+        Args:
+            route1: Primeira rota
+            route2: Segunda rota
             
-    #     Returns:
-    #         Nova rota combinada
-    #     """
-    #     if not route1:
-    #         return route2.copy()
-    #     if not route2:
-    #         return route1.copy()
+        Returns:
+            Nova rota combinada
+        """
+        if not route1:
+            return route2.copy()
+        if not route2:
+            return route1.copy()
         
-    #     # Combina os locais das duas rotas
-    #     all_locals = route1 + route2
+        # Combina os locais das duas rotas
+        all_locals = route1 + route2
         
-    #     # Remove duplicatas mantendo a ordem
-    #     seen = set()
-    #     unique_locals = []
-    #     for local in all_locals:
-    #         if local.id not in seen:
-    #             seen.add(local.id)
-    #             unique_locals.append(local)
+        # Remove duplicatas mantendo a ordem
+        seen = set()
+        unique_locals = []
+        for local in all_locals:
+            if local.id not in seen:
+                seen.add(local.id)
+                unique_locals.append(local)
         
-    #     # Embaralha a lista de locais únicos
-    #     random.shuffle(unique_locals)
+        # Embaralha a lista de locais únicos
+        random.shuffle(unique_locals)
         
-    #     # Decide o tamanho da nova rota (média dos tamanhos originais)
-    #     target_length = (len(route1) + len(route2)) // 2
+        # Decide o tamanho da nova rota (média dos tamanhos originais)
+        target_length = (len(route1) + len(route2)) // 2
         
-    #     # Ajusta o tamanho se necessário
-    #     if len(unique_locals) > target_length:
-    #         unique_locals = unique_locals[:target_length]
+        # Ajusta o tamanho se necessário
+        if len(unique_locals) > target_length:
+            unique_locals = unique_locals[:target_length]
         
-    #     return unique_locals
+        return unique_locals
 
     # def mutate(self, mutation_rate: float):
     #     """
