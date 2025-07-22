@@ -227,6 +227,10 @@ class Genoma:
         # Mutação 2: Mover locais entre veículos
         if self._mutar_mover_entre_veiculos(taxa_mutacao):
             mutacao_aplicada = True
+
+        # Mutação 3: Remover locais excedentes e redistribuir
+        if self._mutar_remover_excedentes(taxa_mutacao):
+            mutacao_aplicada = True    
         
         # Recalcular métricas se houve mutação
         if mutacao_aplicada:
@@ -266,11 +270,94 @@ class Genoma:
         # Mover local aleatório
         local_movido = random.choice(rota_origem)
         rota_origem.remove(local_movido)
+
+        if local_movido in rota_destino:
+            return True  # já existe na rota de destino, não move, apenas remove da origem
         
         posicao_insercao = random.randint(0, len(rota_destino))
         rota_destino.insert(posicao_insercao, local_movido)
         
         return True
+
+    def _mutar_remover_excedentes(self, taxa_mutacao: float) -> bool:
+        """Remove locais excedentes de rotas sobrecarregadas e redistribui"""
+        if random.random() >= taxa_mutacao:
+            return False
+        
+        mutacao_aplicada = False
+        locais_removidos = []
+        
+        # Identifica rotas com demanda excedente e remove últimos locais
+        for veiculo, rota in self.routes.items():
+            if not rota:
+                continue
+            
+            demanda_rota = sum(local.demanda for local in rota)
+            
+            # Se demanda excede capacidade, remove últimos locais
+            if demanda_rota > veiculo.capacidade:
+                locais_a_remover = []
+                demanda_acumulada = 0
+                
+                # Remove locais do final até que a demanda seja <= capacidade
+                for i in range(len(rota) - 1, -1, -1):
+                    local = rota[i]
+                    demanda_acumulada += local.demanda
+                    locais_a_remover.append(local)
+                    
+                    # Para quando a demanda restante cabe na capacidade
+                    if (demanda_rota - demanda_acumulada) <= veiculo.capacidade:
+                        break
+                
+                # Remove os locais identificados
+                for local in locais_a_remover:
+                    rota.remove(local)
+                    mutacao_aplicada = True
+                
+                # Adiciona à lista de locais para redistribuir
+                locais_removidos.extend(locais_a_remover)
+        
+        # Redistribui locais removidos que não estão em outras rotas
+        if locais_removidos:
+            self._redistribuir_locais_removidos(locais_removidos)
+        
+        return mutacao_aplicada
+    
+    def _redistribuir_locais_removidos(self, locais_removidos: List[Local]) -> None:
+        """Redistribui locais removidos para outras rotas"""
+        # Identifica todos os locais presentes nas rotas atuais
+        locais_nas_rotas = set()
+        for rota in self.routes.values():
+            for local in rota:
+                locais_nas_rotas.add(local.id)
+        
+        # Filtra locais que realmente precisam ser redistribuídos
+        locais_para_redistribuir = [
+            local for local in locais_removidos 
+            if local.id not in locais_nas_rotas
+        ]
+        
+        if not locais_para_redistribuir:
+            return
+        
+        # Obter lista de veículos disponíveis
+        veiculos_disponiveis = list(self.routes.keys())
+        
+        if not veiculos_disponiveis:
+            return
+        
+        # Redistribui cada local para um veículo aleatório
+        for local in locais_para_redistribuir:
+            veiculo_destino = random.choice(veiculos_disponiveis)
+            rota_destino = self.routes[veiculo_destino]
+            
+            # Adiciona em posição aleatória
+            if rota_destino:
+                posicao = random.randint(0, len(rota_destino))
+            else:
+                posicao = 0
+            
+            rota_destino.insert(posicao, local)    
 
     def imprimir_status(self) -> None:
         """Imprime status detalhado do genoma"""

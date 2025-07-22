@@ -3,9 +3,9 @@ import random
 import itertools
 
 POPULATION_SIZE = 500
-RANDOM_POPULATION_SIZE = 50
-MUTATION_RATE = 0.2
-N_GENERATIONS = 5000
+RANDOM_POPULATION_SIZE = 20
+MUTATION_RATE = 0.3
+N_GENERATIONS = 2000
 ELITE_SIZE = 6  # Quantos melhores manter
 
 veiculos = load_veiculos_csv()
@@ -34,7 +34,7 @@ for generation in range(N_GENERATIONS):
     best_fitness_values.append(best_fitness)
     best_solutions.append(best_solution)
 
-    print(f"Generation {generation}: Best fitness = {best_fitness}")    
+    print(f"Best fitness = {best_fitness:.2f}, Kms = {best_solution.metricas.distancia_percorrida_total:.2f}")    
 
     # Hereditariedade
     # Seleção dos pais (roleta viciada)
@@ -50,7 +50,7 @@ for generation in range(N_GENERATIONS):
         parent1, parent2 = random.choices(population, weights=selection_probs, k=2)
         # child = random.choice([parent1, parent2])
         child = parent1.crossover(parceiro=parent2)
-        child.mutate(taxa_mutacao=MUTATION_RATE)        
+        child.mutate(taxa_mutacao=MUTATION_RATE)
         new_population.append(child)
 
     # population = new_population + generate_random_population(population_size=POPULATION_SIZE - len(new_population))
