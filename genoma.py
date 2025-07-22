@@ -1,316 +1,333 @@
 import random
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
 
 from local import Local
 from veiculo import Veiculo
 from distancia_geografica import calcular_distancia
 
+
+@dataclass
+class MetricasGenoma:
+    """Classe para armazenar métricas do genoma"""
+    demanda_pendente: Dict[int, int]
+    demanda_total: int
+    capacidade_ociosa: Dict[int, int]
+    capacidade_total: int
+    distancia_percorrida: Dict[int, float]
+    distancia_percorrida_total: float
+    demanda_pendente_total: int
+    capacidade_ociosa_total: int
+
+
 class Genoma:
-    def __init__(self, routes: Dict[Veiculo, List[Local]], local_inicial: Optional[Local] = None, fitness: float = 0.0):
-        self.routes = routes  # Lista de rotas, onde cada rota é uma lista de locais atendidos por um veículo
-        self.local_inicial = local_inicial if local_inicial is not None else self.__local_inicial_padrao()  # Local de partida
-        self.fitness = fitness        
-        
-        self._reset()
-        self.percorrer_rotas()        
+    """
+    Representa um genoma para problema de Vehicle Routing Problem (VRP).
+    Cada genoma contém rotas para veículos e métricas de desempenho.
+    """
+    
+    # Constantes para cálculo de fitness
+    PENALIDADE_DEMANDA = 200.0
+    PENALIDADE_CAPACIDADE = 10.0
+    
+    # Local inicial padrão (Fórum Eleitoral de Porto Velho/RO)
+    LOCAL_INICIAL_PADRAO = Local(
+        id=0, 
+        demanda=0, 
+        x=-8.770841339543034, 
+        y=-63.9049906945553
+    )
 
-    def _reset(self):
-        """Reseta os atributos de demanda e capacidade"""
-        # Atributos para calculo de demandas dos locais
-        self.demanda_pendente = self._inicializar_demanda_pendente()
-        self.demanda_total = sum(self.demanda_pendente.values())
-        # Atributos para calculos de capacidade dos veiculos e distancia percorrida
-        self.capacidade_ociosa = self._inicializar_capacidade_ociosa()
-        self.capacidade_total = sum(self.capacidade_ociosa.values())
-        # {veiculo.id -> distancia_percorrida}
-        self.distancia_percorrida = {}
-
-    def _inicializar_demanda_pendente(self):
-        """Inicializa o dicionário de demanda pendente no formato {local.id -> local.demanda}"""
-        demanda_pendente = {}
+    def __init__(
+        self, 
+        routes: Dict[Veiculo, List[Local]], 
+        local_inicial: Optional[Local] = None, 
+        fitness: float = 0.0
+    ):
+        self.routes = routes
+        self.local_inicial = local_inicial or self.LOCAL_INICIAL_PADRAO
+        self.fitness = fitness
         
-        # Coleta todos os locais únicos das rotas
+        # Inicializa e calcula métricas
+        self.metricas = self._inicializar_metricas()
+        self._processar_rotas()
+
+    def _inicializar_metricas(self) -> MetricasGenoma:
+        """Inicializa todas as métricas do genoma"""
+        locais_unicos = self._obter_locais_unicos()
+        veiculos = self.routes.keys()
+        
+        # Inicializar demandas
+        demanda_pendente = {local.id: local.demanda for local in locais_unicos}
+        demanda_total = sum(demanda_pendente.values())
+        
+        # Inicializar capacidades
+        capacidade_ociosa = {veiculo.id: veiculo.capacidade for veiculo in veiculos}
+        capacidade_total = sum(capacidade_ociosa.values())
+        
+        # Inicializar distâncias
+        distancia_percorrida = {veiculo.id: 0.0 for veiculo in veiculos}
+        
+        return MetricasGenoma(
+            demanda_pendente=demanda_pendente,
+            demanda_total=demanda_total,
+            capacidade_ociosa=capacidade_ociosa,
+            capacidade_total=capacidade_total,
+            distancia_percorrida=distancia_percorrida,
+            distancia_percorrida_total=0.0,
+            demanda_pendente_total=demanda_total,
+            capacidade_ociosa_total=capacidade_total
+        )
+
+    def _obter_locais_unicos(self) -> Set[Local]:
+        """Retorna conjunto de locais únicos presentes nas rotas"""
         locais_unicos = set()
         for route in self.routes.values():
-            for local in route:
-                locais_unicos.add(local)
-        
-        # Inicializa a demanda pendente para cada local
-        for local in locais_unicos:
-            demanda_pendente[local.id] = local.demanda
-            
-        return demanda_pendente
+            locais_unicos.update(route)
+        return locais_unicos
 
-    def _inicializar_capacidade_ociosa(self):
-        """Inicializa o dicionário de capacidade ociosa no formato {veiculo.id -> veiculo.capacidade}"""
-        capacidade_ociosa = {}
-        
-        # Coleta todos os veículos das rotas
-        for veiculo in self.routes.keys():
-            capacidade_ociosa[veiculo.id] = veiculo.capacidade
-            
-        return capacidade_ociosa
-
-    def percorrer_rotas(self):
-        """Calcula a distância percorrida pelos veículos"""        
-        for veiculo, route in self.routes.items():
-            if not route:
+    def _processar_rotas(self) -> None:
+        """Processa todas as rotas calculando distâncias e atendendo demandas"""
+        for veiculo, rota in self.routes.items():
+            if not rota:
                 continue
-            # Distância do local_inicial até o primeiro local da rota
-            self.distancia_percorrida[veiculo.id] = calcular_distancia(self.local_inicial.x, self.local_inicial.y, route[0].x, route[0].y)
-            self.atender_demanda(veiculo=veiculo, local=route[0])
+            
+            self._processar_rota_veiculo(veiculo, rota)
+        
+        self._finalizar_metricas()
 
-            # Distância entre os locais subsequentes
-            for i in range(len(route) - 1):
-                local_a = route[i]
-                local_b = route[i + 1]
-                self.distancia_percorrida[veiculo.id] += calcular_distancia(local_a.x, local_a.y, local_b.x, local_b.y)
-                self.atender_demanda(veiculo=veiculo, local=local_b)
-        self.distancia_percorrida_total = sum(self.distancia_percorrida.values())
-        self.demanda_pendente_total = sum(self.demanda_pendente.values())
-        self.capacidade_ociosa_total = sum(self.capacidade_ociosa.values())
+    def _processar_rota_veiculo(self, veiculo: Veiculo, rota: List[Local]) -> None:
+        """Processa uma rota específica de um veículo"""
+        # Distância do local inicial ao primeiro local
+        distancia_inicial = calcular_distancia(
+            self.local_inicial.x, self.local_inicial.y,
+            rota[0].x, rota[0].y
+        )
+        self.metricas.distancia_percorrida[veiculo.id] = distancia_inicial
+        self._atender_demanda(veiculo, rota[0])
 
-    def __local_inicial_padrao(self):
-        # Fórum Eleitoral de Porto Velho/RO
-        # -8.770841339543034, -63.9049906945553
-        return Local(id=0, demanda=0, x=-8.770841339543034, y=-63.9049906945553)
+        # Processar resto da rota
+        for i in range(len(rota) - 1):
+            local_atual = rota[i]
+            proximo_local = rota[i + 1]
+            
+            distancia_segmento = calcular_distancia(
+                local_atual.x, local_atual.y,
+                proximo_local.x, proximo_local.y
+            )
+            
+            self.metricas.distancia_percorrida[veiculo.id] += distancia_segmento
+            self._atender_demanda(veiculo, proximo_local)
 
-    def atender_demanda(self, veiculo: Veiculo, local: Local):   
-        if self.capacidade_ociosa[veiculo.id] <= 0 or  self.demanda_pendente[local.id] <= 0:
+    def _atender_demanda(self, veiculo: Veiculo, local: Local) -> None:
+        """Atende a demanda de um local com um veículo específico"""
+        capacidade_disponivel = self.metricas.capacidade_ociosa[veiculo.id]
+        demanda_local = self.metricas.demanda_pendente[local.id]
+        
+        if capacidade_disponivel <= 0 or demanda_local <= 0:
             return
-        # Se a capacidade do veículo é maior que a demanda do local, atende a demanda do local
-        if self.capacidade_ociosa[veiculo.id] >= self.demanda_pendente[local.id]:
-           self.capacidade_ociosa[veiculo.id] -= self.demanda_pendente[local.id]
-           self.demanda_pendente[local.id] = 0
-        # Se a demanda do local é maior que a capacidade do veículo
-        else:
-            self.demanda_pendente[local.id] -= self.capacidade_ociosa[veiculo.id]
-            self.capacidade_ociosa[veiculo.id] = 0
         
+        demanda_atendida = min(capacidade_disponivel, demanda_local)
+        
+        self.metricas.capacidade_ociosa[veiculo.id] -= demanda_atendida
+        self.metricas.demanda_pendente[local.id] -= demanda_atendida
 
-    def print_status(self):
-        """Imprime o status do genoma"""
-        print("\n=== STATUS DAS DEMANDAS DOS LOCAIS ===")
-        print(f"Demanda Total: {self.demanda_total}")
-        # Considera apenas locais únicos
-        locais_unicos = set()
-        for route in self.routes.values():
-            for local in route:
-                locais_unicos.add(local)
+    def _finalizar_metricas(self) -> None:
+        """Finaliza o cálculo das métricas totais"""
+        self.metricas.distancia_percorrida_total = sum(
+            self.metricas.distancia_percorrida.values()
+        )
+        self.metricas.demanda_pendente_total = sum(
+            self.metricas.demanda_pendente.values()
+        )
+        self.metricas.capacidade_ociosa_total = sum(
+            self.metricas.capacidade_ociosa.values()
+        )
+
+    def calcular_fitness(self) -> float:
+        """Calcula e retorna o fitness do genoma"""
+        fitness = (
+            self.metricas.distancia_percorrida_total +
+            (self.metricas.demanda_pendente_total * self.PENALIDADE_DEMANDA) +
+            (self.metricas.capacidade_ociosa_total * self.PENALIDADE_CAPACIDADE)
+        )
         
-        for local in locais_unicos:
-            pendente = self.demanda_pendente[local.id]
+        self.fitness = fitness
+        return fitness
+
+    def crossover(self, parceiro: 'Genoma') -> 'Genoma':
+        """
+        Realiza crossover entre dois genomas
+        
+        Args:
+            parceiro: Outro genoma para crossover
+            
+        Returns:
+            Novo genoma resultante do crossover
+        """
+        veiculos_combinados = set(self.routes.keys()) | set(parceiro.routes.keys())
+        rotas_filho = {}
+        
+        for veiculo in veiculos_combinados:
+            rota_self = self.routes.get(veiculo, [])
+            rota_parceiro = parceiro.routes.get(veiculo, [])
+            
+            rotas_filho[veiculo] = self._combinar_rotas(rota_self, rota_parceiro)
+        
+        return Genoma(
+            routes=rotas_filho,
+            local_inicial=self.local_inicial
+        )
+
+    def _combinar_rotas(self, rota1: List[Local], rota2: List[Local]) -> List[Local]:
+        """Combina duas rotas"""
+        if not rota1:
+            return rota2.copy()
+        if not rota2:
+            return rota1.copy()
+        
+        # Combinar e remover duplicatas mantendo ordem
+        locais_combinados = rota1 + rota2
+        locais_unicos = self._remover_duplicatas_mantendo_ordem(locais_combinados)
+        
+        # Embaralhar e ajustar tamanho
+        random.shuffle(locais_unicos)
+        tamanho_alvo = (len(rota1) + len(rota2)) // 2
+        
+        return locais_unicos[:tamanho_alvo] if len(locais_unicos) > tamanho_alvo else locais_unicos
+
+    def _remover_duplicatas_mantendo_ordem(self, locais: List[Local]) -> List[Local]:
+        """Remove duplicatas mantendo a ordem original"""
+        vistos = set()
+        resultado = []
+        
+        for local in locais:
+            if local.id not in vistos:
+                vistos.add(local.id)
+                resultado.append(local)
+        
+        return resultado
+
+    def mutate(self, taxa_mutacao: float) -> bool:
+        """
+        Aplica mutação nas rotas do genoma
+        
+        Args:
+            taxa_mutacao: Taxa de mutação (0.0 a 1.0)
+            
+        Returns:
+            True se alguma mutação foi aplicada
+        """
+        mutacao_aplicada = False
+        
+        # Mutação 1: Trocar posições em rotas existentes
+        if self._mutar_trocar_posicoes(taxa_mutacao):
+            mutacao_aplicada = True
+        
+        # Mutação 2: Mover locais entre veículos
+        if self._mutar_mover_entre_veiculos(taxa_mutacao):
+            mutacao_aplicada = True
+        
+        # Recalcular métricas se houve mutação
+        if mutacao_aplicada:
+            self.metricas = self._inicializar_metricas()
+            self._processar_rotas()
+        
+        return mutacao_aplicada
+
+    def _mutar_trocar_posicoes(self, taxa_mutacao: float) -> bool:
+        """Troca posições de locais dentro das rotas"""
+        mutacao_aplicada = False
+        
+        for rota in self.routes.values():
+            if random.random() < taxa_mutacao and len(rota) >= 2:
+                i, j = random.sample(range(len(rota)), 2)
+                rota[i], rota[j] = rota[j], rota[i]
+                mutacao_aplicada = True
+        
+        return mutacao_aplicada
+
+    def _mutar_mover_entre_veiculos(self, taxa_mutacao: float) -> bool:
+        """Move locais entre diferentes veículos"""
+        if random.random() >= taxa_mutacao or len(self.routes) <= 1:
+            return False
+        
+        veiculos = list(self.routes.keys())
+        if len(veiculos) < 2:
+            return False
+        
+        veiculo_origem, veiculo_destino = random.sample(veiculos, 2)
+        rota_origem = self.routes[veiculo_origem]
+        rota_destino = self.routes[veiculo_destino]
+        
+        if not rota_origem:
+            return False
+        
+        # Mover local aleatório
+        local_movido = random.choice(rota_origem)
+        rota_origem.remove(local_movido)
+        
+        posicao_insercao = random.randint(0, len(rota_destino))
+        rota_destino.insert(posicao_insercao, local_movido)
+        
+        return True
+
+    def imprimir_status(self) -> None:
+        """Imprime status detalhado do genoma"""
+        self._imprimir_status_demandas()
+        self._imprimir_status_veiculos()
+        self._imprimir_fitness()
+
+    def _imprimir_status_demandas(self) -> None:
+        """Imprime status das demandas dos locais"""
+        print("\n=== STATUS DAS DEMANDAS DOS LOCAIS ===")
+        print(f"Demanda Total: {self.metricas.demanda_total}")
+        
+        locais_unicos = self._obter_locais_unicos()
+        for local in sorted(locais_unicos, key=lambda l: l.id):
+            pendente = self.metricas.demanda_pendente[local.id]
             status = "✓" if pendente <= 0 else "✗"
             print(f"Local {local.id}: Demanda {local.demanda}, Pendente {pendente} {status}")
+
+    def _imprimir_status_veiculos(self) -> None:
+        """Imprime status dos veículos"""
+        print("\n=== STATUS DAS CAPACIDADES E DISTÂNCIAS DOS VEÍCULOS ===")
+        print(f"Capacidade Total: {self.metricas.capacidade_total}")
+        print(f"Distância Total: {self.metricas.distancia_percorrida_total:.2f} km")
         
-        print("\n=== STATUS DAS CAPACIDADES E DISTÂNCIAS PERCORRIDAS DOS VEÍCULOS ===")
-        print(f"Capacidade Total: {self.capacidade_total}")
-        print(f"Distância Total: {self.distancia_percorrida_total}")
-        
-        for veiculo in self.routes.keys():
-            ociosa = self.capacidade_ociosa[veiculo.id]
+        for veiculo in sorted(self.routes.keys(), key=lambda v: v.id):
+            ociosa = self.metricas.capacidade_ociosa[veiculo.id]
+            distancia = self.metricas.distancia_percorrida[veiculo.id]
             status = "✓" if ociosa <= 0 else "✗"
-            print(f"Veículo {veiculo.id}: Capacidade {veiculo.capacidade}, Ociosa {ociosa} {status}, Distância {self.distancia_percorrida[veiculo.id]:.2f} km")
+            print(f"Veículo {veiculo.id}: Capacidade {veiculo.capacidade}, "
+                  f"Ociosa {ociosa} {status}, Distância {distancia:.2f} km")
+
+    def _imprimir_fitness(self) -> None:
+        """Imprime informações de fitness"""
         print("\n=== FITNESS ===")
         print(f"Fitness: {self.fitness:.2f}")
 
-    def print_routes(self):
-        """Imprime as rotas do genoma"""
+    def imprimir_rotas(self) -> None:
+        """Imprime as rotas do genoma de forma organizada"""
         print("\n=== ROTAS DO GENOMA ===")
         
-        for veiculo in self.routes.keys():            
-            # Formata os locais da rota: L1, L2, L3, ...
-            locais_str = ", ".join([f"L{local.id} ({local.demanda})" for local in self.routes[veiculo]])
+        for veiculo in sorted(self.routes.keys(), key=lambda v: v.id):
+            rota = self.routes[veiculo]
+            locais_str = ", ".join([f"L{local.id} ({local.demanda})" for local in rota])
             
-            # Imprime no formato solicitado: V1 {modelo} {ano} ({capacidade}): [L{numero}, L{numero}]
-            print(f"V{veiculo.id} {veiculo.modelo} {veiculo.ano} ({veiculo.capacidade}): [{locais_str}]")        
+            print(f"V{veiculo.id} {veiculo.modelo} {veiculo.ano} "
+                  f"({veiculo.capacidade}): [{locais_str}]")
 
-    def calc_fitness(self):        
-        # Penalidades: demanda não atendida tem peso muito maior
-        PENALIDADE_DEMANDA = 200.0  # Penalidade alta para demanda não atendida
-        PENALIDADE_CAPACIDADE = 10.0  # Penalidade menor para capacidade não utilizada
-        
-        # Fitness é a distância total + penalidades
-        self.fitness = self.distancia_percorrida_total + (self.demanda_pendente_total * PENALIDADE_DEMANDA) + (self.capacidade_ociosa_total * PENALIDADE_CAPACIDADE)
-        return self.fitness
+    def obter_locais_unicos(self) -> Set[Local]:
+        """Retorna conjunto de locais únicos (método público)"""
+        return self._obter_locais_unicos()
 
-    def crossover(self, partner: 'Genoma') -> 'Genoma':
-        """
-        Realiza o crossover entre dois genomas, combinando suas rotas de forma randômica e equitativa.
-        
-        Args:
-            partner: Outro genoma para realizar o crossover
-            
-        Returns:
-            Novo genoma resultante da combinação
-        """
-        # Obtém todos os veículos únicos dos dois genomas
-        all_vehicles = set(self.routes.keys()) | set(partner.routes.keys())
-        child_routes = {}
-        
-        for vehicle in all_vehicles:
-            # Verifica se o veículo existe em ambos os genomas
-            self_route = self.routes.get(vehicle, [])
-            partner_route = partner.routes.get(vehicle, [])
-            
-            if not self_route and not partner_route:
-                # Veículo não existe em nenhum dos genomas
-                continue
-            elif not self_route:
-                # Veículo só existe no partner
-                child_routes[vehicle] = partner_route.copy()
-            elif not partner_route:
-                # Veículo só existe no self
-                child_routes[vehicle] = self_route.copy()
-            else:
-                # Veículo existe em ambos - combina as rotas
-                child_routes[vehicle] = self._combine_routes(self_route, partner_route)
-        
-        # Usa o local_inicial do primeiro genoma (pode ser aleatório também)
-        local_inicial = self.local_inicial
-        
-        # Cria o novo genoma
-        child = Genoma(routes=child_routes, local_inicial=local_inicial)
-        
-        return child
-    
-    def _combine_routes(self, route1: List[Local], route2: List[Local]) -> List[Local]:
-        """
-        Combina duas rotas de forma randômica e equitativa.
-        
-        Args:
-            route1: Primeira rota
-            route2: Segunda rota
-            
-        Returns:
-            Nova rota combinada
-        """
-        if not route1:
-            return route2.copy()
-        if not route2:
-            return route1.copy()
-        
-        # Combina os locais das duas rotas
-        all_locals = route1 + route2
-        
-        # Remove duplicatas mantendo a ordem
-        seen = set()
-        unique_locals = []
-        for local in all_locals:
-            if local.id not in seen:
-                seen.add(local.id)
-                unique_locals.append(local)
-        
-        # Embaralha a lista de locais únicos
-        random.shuffle(unique_locals)
-        
-        # Decide o tamanho da nova rota (média dos tamanhos originais)
-        target_length = (len(route1) + len(route2)) // 2
-        
-        # Ajusta o tamanho se necessário
-        if len(unique_locals) > target_length:
-            unique_locals = unique_locals[:target_length]
-        
-        return unique_locals
-
-    # def mutate(self, mutation_rate: float):
-    #     """
-    #     Aplica mutação nas rotas do genoma.
-        
-    #     Args:
-    #         mutation_rate: Taxa de mutação (0.0 a 1.0)
-    #     """
-    #     mutation_applied = False
-        
-    #     # Primeiro, calcula o fitness para ter os dados de demanda atendida atualizados
-    #     self.calc_fitness()
-        
-    #     # Coleta todos os locais únicos e suas demandas atendidas
-    #     locais_unicos = set()
-    #     for route in self.routes.values():
-    #         for local in route:
-    #             locais_unicos.add(local)
-        
-    #     # Identifica locais com demanda não atendida
-    #     locais_demanda_nao_atendida = []
-    #     for local in locais_unicos:
-    #         if local.demanda_atendida < local.demanda:
-    #             # Adiciona o local múltiplas vezes baseado na demanda não atendida
-    #             for _ in range(local.demanda - local.demanda_atendida):
-    #                 locais_demanda_nao_atendida.append(local)
-        
-    #     # Identifica veículos com capacidade disponível
-    #     veiculos_capacidade_disponivel = []
-    #     for veiculo in self.routes.keys():
-    #         capacidade_disponivel = veiculo.capacidade - veiculo.capacidade_atendida
-    #         if capacidade_disponivel > 0:
-    #             veiculos_capacidade_disponivel.append((veiculo, capacidade_disponivel))
-        
-    #     # Mutação 1: Troca posições em rotas existentes
-    #     for vehicle, route in self.routes.items():
-    #         if random.random() < mutation_rate and len(route) >= 2:
-    #             # Troca dois locais aleatórios na rota
-    #             i, j = random.sample(range(len(route)), 2)
-    #             route[i], route[j] = route[j], route[i]
-    #             mutation_applied = True
-        
-    #     # Mutação 2: Adiciona locais com demanda não atendida para veículos com capacidade
-    #     if random.random() < mutation_rate and locais_demanda_nao_atendida and veiculos_capacidade_disponivel:
-    #         # Escolhe um veículo aleatório com capacidade disponível
-    #         veiculo, capacidade_disponivel = random.choice(veiculos_capacidade_disponivel)
-            
-    #         # Escolhe um local aleatório com demanda não atendida
-    #         local_para_adicionar = random.choice(locais_demanda_nao_atendida)
-            
-    #         # Escolhe uma posição aleatória na rota do veículo
-    #         posicao = random.randint(0, len(self.routes[veiculo]))
-            
-    #         # Adiciona o local na posição escolhida
-    #         self.routes[veiculo].insert(posicao, local_para_adicionar)
-    #         mutation_applied = True
-            
-    #         # print(f"Mutacao: Adicionado local {local_para_adicionar.id} na posicao {posicao} do veiculo {veiculo.id}")
-        
-    #     # Mutação 3: Move locais entre veículos (se houver múltiplos veículos)
-    #     if random.random() < mutation_rate and len(self.routes) > 1:
-    #         # Escolhe dois veículos aleatórios diferentes
-    #         veiculos = list(self.routes.keys())
-    #         if len(veiculos) >= 2:
-    #             veiculo_origem, veiculo_destino = random.sample(veiculos, 2)
-                
-    #             # Verifica se o veículo origem tem locais e o destino tem capacidade
-    #             if (self.routes[veiculo_origem] and 
-    #                 veiculo_destino.capacidade_atendida < veiculo_destino.capacidade):
-                    
-    #                 # Escolhe um local aleatório do veículo origem
-    #                 local_movido = random.choice(self.routes[veiculo_origem])
-                    
-    #                 # Remove do veículo origem
-    #                 self.routes[veiculo_origem].remove(local_movido)
-                    
-    #                 # Adiciona no veículo destino em posição aleatória
-    #                 posicao = random.randint(0, len(self.routes[veiculo_destino]))
-    #                 self.routes[veiculo_destino].insert(posicao, local_movido)
-                    
-    #                 mutation_applied = True
-    #                 # print(f"Mutacao: Movido local {local_movido.id} do veiculo {veiculo_origem.id} para veiculo {veiculo_destino.id} na posicao {posicao}")
-        
-    #     # Recalcula a distância total se uma mutação foi aplicada
-    #     if mutation_applied:
-    #         self._calculate_total_distance()
-    #         # print(f"Mutacao aplicada. Nova distancia total: {self._total_distance:.2f}")
-
-    # def print_distances(self):
-    #     for v_idx, (veiculo, route) in enumerate(self.routes.items(), 1):
-    #         if not route:
-    #             continue
-    #         # Distância do local_inicial até o primeiro local
-    #         dist = calcular_distancia(self.local_inicial.x, self.local_inicial.y, route[0].x, route[0].y)
-    #         print(f"V{v_idx}: {self.local_inicial.id} até {route[0].id}: {dist:.2f} km")
-    #         # Distâncias entre os locais subsequentes
-    #         for i in range(len(route) - 1):
-    #             local_a = route[i]
-    #             local_b = route[i + 1]
-    #             dist = calcular_distancia(local_a.x, local_a.y, local_b.x, local_b.y)
-    #             print(f"V{v_idx}: {local_a.id} até {local_b.id}: {dist:.2f} km")
-    
+    def obter_resumo_metricas(self) -> Dict[str, float]:
+        """Retorna resumo das principais métricas"""
+        return {
+            'distancia_total': self.metricas.distancia_percorrida_total,
+            'demanda_pendente_total': self.metricas.demanda_pendente_total,
+            'capacidade_ociosa_total': self.metricas.capacidade_ociosa_total,
+            'fitness': self.fitness,
+            'taxa_atendimento': 1 - (self.metricas.demanda_pendente_total / self.metricas.demanda_total) if self.metricas.demanda_total > 0 else 1.0
+        }

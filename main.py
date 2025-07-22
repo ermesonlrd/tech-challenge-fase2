@@ -5,7 +5,7 @@ import itertools
 POPULATION_SIZE = 500
 RANDOM_POPULATION_SIZE = 50
 MUTATION_RATE = 0.2
-N_GENERATIONS = 3000
+N_GENERATIONS = 5000
 ELITE_SIZE = 6  # Quantos melhores manter
 
 veiculos = load_veiculos_csv()
@@ -23,7 +23,7 @@ for generation in range(N_GENERATIONS):
     # Seleção
     # Calcular fitness para cada indivíduo
     for genoma in population:
-        genoma.calc_fitness()
+        genoma.calcular_fitness()
     fitness_values = [genoma.fitness for genoma in population]
     
     # Selecionar os melhores (elitismo)
@@ -49,8 +49,8 @@ for generation in range(N_GENERATIONS):
     while len(new_population) < POPULATION_SIZE:
         parent1, parent2 = random.choices(population, weights=selection_probs, k=2)
         # child = random.choice([parent1, parent2])
-        child = parent1.crossover(partner=parent2)
-        # child.mutate(mutation_rate=MUTATION_RATE)        
+        child = parent1.crossover(parceiro=parent2)
+        child.mutate(taxa_mutacao=MUTATION_RATE)        
         new_population.append(child)
 
     # population = new_population + generate_random_population(population_size=POPULATION_SIZE - len(new_population))
@@ -58,5 +58,5 @@ for generation in range(N_GENERATIONS):
 
 print(f"Melhor fitness final: {min(best_fitness_values)}")
 best_solution = best_solutions[best_fitness_values.index(min(best_fitness_values))]
-best_solution.print_routes()
-best_solution.print_status()
+best_solution.imprimir_status()
+best_solution.imprimir_rotas()
