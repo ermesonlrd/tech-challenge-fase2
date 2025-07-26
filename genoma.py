@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from local import Local
 from veiculo import Veiculo
-from distancia_geografica import calcular_distancia
+from distancia_geografica import calcular_distancia_manhattan
 
 
 @dataclass
@@ -99,7 +99,7 @@ class Genoma:
     def _processar_rota_veiculo(self, veiculo: Veiculo, rota: List[Local]) -> None:
         """Processa uma rota específica de um veículo"""
         # Distância do local inicial ao primeiro local
-        distancia_inicial = calcular_distancia(
+        distancia_inicial = calcular_distancia_manhattan(
             self.local_inicial.x, self.local_inicial.y,
             rota[0].x, rota[0].y
         )
@@ -111,7 +111,7 @@ class Genoma:
             local_atual = rota[i]
             proximo_local = rota[i + 1]
             
-            distancia_segmento = calcular_distancia(
+            distancia_segmento = calcular_distancia_manhattan(
                 local_atual.x, local_atual.y,
                 proximo_local.x, proximo_local.y
             )
