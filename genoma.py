@@ -157,7 +157,8 @@ class Genoma:
 
     def crossover(self, parceiro: 'Genoma') -> 'Genoma':
         """
-        Realiza crossover entre dois genomas
+        Realiza crossover entre dois genomas garantindo que todos os locais
+        únicos de ambos os genomas estejam presentes no filho
         
         Args:
             parceiro: Outro genoma para crossover
@@ -165,48 +166,57 @@ class Genoma:
         Returns:
             Novo genoma resultante do crossover
         """
-        veiculos_combinados = set(self.routes.keys()) | set(parceiro.routes.keys())
-        rotas_filho = {}
+        # Coletar todos os locais únicos de ambos os genomas
+        todos_locais = {}  # id -> Local
         
-        for veiculo in veiculos_combinados:
-            rota_self = self.routes.get(veiculo, [])
-            rota_parceiro = parceiro.routes.get(veiculo, [])
+        # Adicionar locais do self
+        for rota in self.routes.values():
+            for local in rota:
+                todos_locais[local.id] = local
+        
+        # Adicionar locais do parceiro (sem duplicar)
+        for rota in parceiro.routes.values():
+            for local in rota:
+                if local.id not in todos_locais:
+                    todos_locais[local.id] = local
+        
+        locais_unicos = list(todos_locais.values())        
+        
+        # Criar dicionários para mapear ID -> Veiculo para evitar duplicação
+        veiculos_self = {v.id: v for v in self.routes.keys()}
+        veiculos_parceiro = {v.id: v for v in parceiro.routes.keys()}
+        
+        # Combinar IDs únicos de veículos
+        ids_veiculos_combinados = set(veiculos_self.keys()) | set(veiculos_parceiro.keys())        
+        
+        # Distribuir os locais entre os veículos
+        rotas_filho = {}
+        locais_restantes = locais_unicos.copy()
+        random.shuffle(locais_restantes)
+        
+        # Calcular quantos locais cada veículo deve receber aproximadamente
+        locais_por_veiculo = len(locais_unicos) // len(ids_veiculos_combinados)
+        locais_extras = len(locais_unicos) % len(ids_veiculos_combinados)
+        
+        indice_local = 0
+        
+        for i, veiculo_id in enumerate(ids_veiculos_combinados):
+            # Pegar o objeto veículo (preferindo self, senão parceiro)
+            veiculo_final = veiculos_self.get(veiculo_id) or veiculos_parceiro.get(veiculo_id)
             
-            rotas_filho[veiculo] = self._combinar_rotas(rota_self, rota_parceiro)
+            # Calcular quantos locais este veículo deve receber
+            qtd_locais = locais_por_veiculo + (1 if i < locais_extras else 0)
+            
+            # Atribuir locais ao veículo
+            rota_veiculo = locais_restantes[indice_local:indice_local + qtd_locais]
+            rotas_filho[veiculo_final] = rota_veiculo
+            
+            indice_local += qtd_locais
         
         return Genoma(
             routes=rotas_filho,
             local_inicial=self.local_inicial
-        )
-
-    def _combinar_rotas(self, rota1: List[Local], rota2: List[Local]) -> List[Local]:
-        """Combina duas rotas"""
-        if not rota1:
-            return rota2.copy()
-        if not rota2:
-            return rota1.copy()
-        
-        # Combinar e remover duplicatas mantendo ordem
-        locais_combinados = rota1 + rota2
-        locais_unicos = self._remover_duplicatas_mantendo_ordem(locais_combinados)
-        
-        # Embaralhar e ajustar tamanho
-        random.shuffle(locais_unicos)
-        tamanho_alvo = (len(rota1) + len(rota2)) // 2
-        
-        return locais_unicos[:tamanho_alvo] if len(locais_unicos) > tamanho_alvo else locais_unicos
-
-    def _remover_duplicatas_mantendo_ordem(self, locais: List[Local]) -> List[Local]:
-        """Remove duplicatas mantendo a ordem original"""
-        vistos = set()
-        resultado = []
-        
-        for local in locais:
-            if local.id not in vistos:
-                vistos.add(local.id)
-                resultado.append(local)
-        
-        return resultado
+        )    
 
     def mutate(self, taxa_mutacao: float) -> bool:
         """
