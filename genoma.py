@@ -371,6 +371,7 @@ class Genoma:
         print(f"Demanda Total: {self.metricas.demanda_total}")
         
         locais_unicos = self._obter_locais_unicos()
+        print(f"Número de locais: {len(locais_unicos)}")
         for local in sorted(locais_unicos, key=lambda l: l.id):
             pendente = self.metricas.demanda_pendente[local.id]
             status = "✓" if pendente <= 0 else "✗"

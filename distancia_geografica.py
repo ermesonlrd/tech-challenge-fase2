@@ -1,4 +1,7 @@
 import math
+from typing import List
+
+from local import Local
 
 def calcular_distancia(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -55,3 +58,9 @@ def calcular_distancia_manhattan(lat1: float, lon1: float, lat2: float, lon2: fl
     distancia_manhattan: float = distancia_lat + distancia_lon
     
     return distancia_manhattan
+
+def calcular_distancia_manhattan_locais(local1: Local, local2: Local) -> float:
+    return calcular_distancia_manhattan(local1.x, local1.y, local2.x, local2.y)
+
+def calcular_distancia_manhattan_rota(rota: List[Local]) -> float:
+    return sum(calcular_distancia_manhattan_locais(rota[i], rota[i+1]) for i in range(len(rota)-1))
