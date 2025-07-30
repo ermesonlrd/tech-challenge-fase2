@@ -21,8 +21,7 @@ class MetricasGenoma:
 
 
 class Genoma:
-    """
-    Representa um genoma para problema de Vehicle Routing Problem (VRP).
+    """    
     Cada genoma contém rotas para veículos e métricas de desempenho.
     """
     
@@ -155,68 +154,77 @@ class Genoma:
         self.fitness = fitness
         return fitness
 
+    def _normalizar_rota(self, rota, locais_unicos):
+        return [locais_unicos[local.id] for local in rota]
+
+    def _adicionar_rota(self, veiculo, rota, locais_unicos, rotas_filho, locais_atribuidos):
+        rota_norm = self._normalizar_rota(rota, locais_unicos)
+        rotas_filho[veiculo] = rota_norm
+        locais_atribuidos.update(local.id for local in rota_norm)
+
     def crossover(self, parceiro: 'Genoma') -> 'Genoma':
         """
-        Realiza crossover entre dois genomas garantindo que todos os locais
-        únicos de ambos os genomas estejam presentes no filho
-        
-        Args:
-            parceiro: Outro genoma para crossover
-            
-        Returns:
-            Novo genoma resultante do crossover
+        Realiza crossover entre dois genomas, garantindo que:
+        - Todos os locais únicos (por ID) estejam presentes no filho
+        - Locais de mesmo ID usem o mesmo objeto
+        - Veículos únicos são copiados integralmente
+        - Veículos compartilhados combinam rotas (sem repetição) com tamanho variável
         """
-        # Coletar todos os locais únicos de ambos os genomas
-        todos_locais = {}  # id -> Local
-        
-        # Adicionar locais do self
-        for rota in self.routes.values():
-            for local in rota:
-                todos_locais[local.id] = local
-        
-        # Adicionar locais do parceiro (sem duplicar)
-        for rota in parceiro.routes.values():
-            for local in rota:
-                if local.id not in todos_locais:
-                    todos_locais[local.id] = local
-        
-        locais_unicos = list(todos_locais.values())        
-        
-        # Criar dicionários para mapear ID -> Veiculo para evitar duplicação
-        veiculos_self = {v.id: v for v in self.routes.keys()}
-        veiculos_parceiro = {v.id: v for v in parceiro.routes.keys()}
-        
-        # Combinar IDs únicos de veículos
-        ids_veiculos_combinados = set(veiculos_self.keys()) | set(veiculos_parceiro.keys())        
-        
-        # Distribuir os locais entre os veículos
+        # Construir mapa único de locais (prioridade: self)
+        locais_unicos = {local.id: local for rota in parceiro.routes.values() for local in rota}
+        locais_unicos.update({local.id: local for rota in self.routes.values() for local in rota})
+
+        # Mapear veículos
+        veiculos_self = {v.id: v for v in self.routes}
+        veiculos_parceiro = {v.id: v for v in parceiro.routes}
+
+        ids_self = set(veiculos_self)
+        ids_parceiro = set(veiculos_parceiro)
+        ids_compartilhados = ids_self & ids_parceiro
+        ids_unicos_self = ids_self - ids_parceiro
+        ids_unicos_parceiro = ids_parceiro - ids_self
+
         rotas_filho = {}
-        locais_restantes = locais_unicos.copy()
-        random.shuffle(locais_restantes)
-        
-        # Calcular quantos locais cada veículo deve receber aproximadamente
-        locais_por_veiculo = len(locais_unicos) // len(ids_veiculos_combinados)
-        locais_extras = len(locais_unicos) % len(ids_veiculos_combinados)
-        
-        indice_local = 0
-        
-        for i, veiculo_id in enumerate(ids_veiculos_combinados):
-            # Pegar o objeto veículo (preferindo self, senão parceiro)
-            veiculo_final = veiculos_self.get(veiculo_id) or veiculos_parceiro.get(veiculo_id)
-            
-            # Calcular quantos locais este veículo deve receber
-            qtd_locais = locais_por_veiculo + (1 if i < locais_extras else 0)
-            
-            # Atribuir locais ao veículo
-            rota_veiculo = locais_restantes[indice_local:indice_local + qtd_locais]
-            rotas_filho[veiculo_final] = rota_veiculo
-            
-            indice_local += qtd_locais
-        
-        return Genoma(
-            routes=rotas_filho,
-            local_inicial=self.local_inicial
-        )    
+        locais_atribuidos = set()
+
+        # Veículos exclusivos
+        for vid in ids_unicos_self:
+            self._adicionar_rota(veiculos_self[vid], self.routes[veiculos_self[vid]],
+                            locais_unicos, rotas_filho, locais_atribuidos)
+
+        for vid in ids_unicos_parceiro:
+            self._adicionar_rota(veiculos_parceiro[vid], parceiro.routes[veiculos_parceiro[vid]],
+                            locais_unicos, rotas_filho, locais_atribuidos)
+
+        # Veículos compartilhados
+        for vid in ids_compartilhados:
+            v = veiculos_self[vid]
+            rota1 = self.routes[v]
+            rota2 = parceiro.routes[veiculos_parceiro[vid]]
+            ids_combinados = set(local.id for local in rota1 + rota2)
+            locais_combinados = [locais_unicos[i] for i in ids_combinados]
+
+            opcoes_tamanho = [
+                len(rota1),
+                len(rota2),
+                (len(rota1) + len(rota2)) // 2,
+                len(rota1) + len(rota2)
+            ]
+            tamanho = min(random.choice(opcoes_tamanho), len(locais_combinados))
+
+            rota_final = random.sample(locais_combinados, tamanho) if tamanho > 0 else []
+            rotas_filho[v] = rota_final
+            locais_atribuidos.update(local.id for local in rota_final)
+
+        # Distribuir locais restantes
+        ids_restantes = set(locais_unicos) - locais_atribuidos
+        veiculos = list(rotas_filho.keys())
+        for local_id in ids_restantes:
+            local = locais_unicos[local_id]
+            veiculo = random.choice(veiculos)
+            rotas_filho[veiculo].append(local)
+
+        return Genoma(routes=rotas_filho, local_inicial=self.local_inicial)
 
     def mutate(self, taxa_mutacao: float) -> bool:
         """
@@ -367,13 +375,26 @@ class Genoma:
             else:
                 posicao = 0
             
-            rota_destino.insert(posicao, local)    
+            rota_destino.insert(posicao, local)
+
+    def obter_locais_unicos(self) -> Set[Local]:
+        """Retorna conjunto de locais únicos"""
+        return self._obter_locais_unicos()            
 
     def imprimir_status(self) -> None:
         """Imprime status detalhado do genoma"""
         self._imprimir_status_demandas()
         self._imprimir_status_veiculos()
         self._imprimir_fitness()
+
+    def imprimir_status_resumido(self) -> None:
+        """Imprime status resumido do genoma"""
+        print("\n=== STATUS RESUMIDO ===")
+        print(f"Demanda Total: {self.metricas.demanda_total}")
+        print(f"Número de locais: {len(self._obter_locais_unicos())}")
+        print(f"Capacidade Total: {self.metricas.capacidade_total}")
+        print(f"Distância Total: {self.metricas.distancia_percorrida_total:.2f} km")
+        print(f"Fitness: {self.fitness:.2f}")
 
     def _imprimir_status_demandas(self) -> None:
         """Imprime status das demandas dos locais"""
@@ -414,11 +435,7 @@ class Genoma:
             locais_str = ", ".join([f"L{local.id} ({local.demanda})" for local in rota])
             
             print(f"V{veiculo.id} {veiculo.modelo} {veiculo.ano} "
-                  f"({veiculo.capacidade}): [{locais_str}]")
-
-    def obter_locais_unicos(self) -> Set[Local]:
-        """Retorna conjunto de locais únicos (método público)"""
-        return self._obter_locais_unicos()
+                  f"({veiculo.capacidade}): [{locais_str}]")    
 
     def obter_resumo_metricas(self) -> Dict[str, float]:
         """Retorna resumo das principais métricas"""
