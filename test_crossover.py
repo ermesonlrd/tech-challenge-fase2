@@ -13,5 +13,5 @@ p2.imprimir_rotas()
 
 child = p1.crossover(parceiro=p2)
 child.calcular_fitness()
-child.imprimir_status_resumido()
 child.imprimir_rotas()
+child.imprimir_status_resumido()

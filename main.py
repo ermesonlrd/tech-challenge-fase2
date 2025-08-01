@@ -4,9 +4,9 @@ import itertools
 
 POPULATION_SIZE = 500
 RANDOM_POPULATION_SIZE = 20
-MUTATION_RATE = 0.3
+MUTATION_RATE = 0.4
 N_GENERATIONS = 10000
-ELITE_SIZE = 6  # Quantos melhores manter
+ELITE_SIZE = 10  # Quantos melhores manter
 
 veiculos = load_veiculos_csv()
 locais = load_locais_csv()
@@ -44,8 +44,18 @@ for generation in range(N_GENERATIONS):
     else:
         selection_probs = [f/total_fitness for f in fitness_values]
 
+    # adiciona os melhores da geração
     new_population = elites
-    new_population += generate_random_population(population_size=RANDOM_POPULATION_SIZE, veiculos=veiculos, locais=locais)
+    # adiciona uma nova população randômica
+    new_random_population = generate_random_population(population_size=RANDOM_POPULATION_SIZE, veiculos=veiculos, locais=locais)
+    new_population += new_random_population
+    # adiciona um cruzamento dos melhores com a nova população randômica
+    for parent1 in new_random_population:
+        parent2 = random.choice(elites)
+        child = parent1.crossover(parceiro=parent2)
+        child.mutate(taxa_mutacao=MUTATION_RATE)
+        new_population.append(child)
+    # Adiciona o restante da população    
     while len(new_population) < POPULATION_SIZE:
         parent1, parent2 = random.choices(population, weights=selection_probs, k=2)
         # child = random.choice([parent1, parent2])
