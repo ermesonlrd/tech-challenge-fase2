@@ -525,7 +525,7 @@ Para mais detalhes sobre os resultados obtidos, veja [RESULTADOS.md](RESULTADOS.
 | 4    | Regular                | Diversidade adequada (`30`) com **mutação baixa (`0.2`)** limitou a capacidade de variação genética. Resultados medianos. |
 | **2** | ❌ Pior desempenho       | Ausência de novos indivíduos (`RANDOM_POPULATION_SIZE = 0`) causou **convergência prematura**. Mesmo com `MUTATION_RATE = 0.4`, apresentou os **piores valores de fitness e distância**. |
 
-RANDOM_POPULATION_SIZE representa novos indivíduos aleatórios inseridos a cada geração (não apenas na população inicial), o papel desse parâmetro muda: ele controla a diversidade contínua do algoritmo ao longo da evolução. Esse fator pode prevenir o prematuro estagnamento da população em ótimos locais.
+RANDOM_POPULATION_SIZE representa novos indivíduos aleatórios inseridos a cada geração (não apenas na população inicial), ele controla a diversidade contínua do algoritmo ao longo da evolução. Esse fator pode prevenir o prematuro estagnamento da população em ótimos locais.
 
 #### Conclusão
 - A **diversidade contínua (RANDOM_POPULATION_SIZE > 0)** é **essencial para evitar estagnação** e garantir qualidade da solução.
