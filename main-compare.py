@@ -1,6 +1,10 @@
 from population import generate_random_population, load_locais_csv, load_veiculos_csv
 import random
 import itertools
+import os
+from distancia_geografica import calcular_distancia_manhattan_rota
+from local import Local
+from clarke_wright import clarke_wright
 
 POPULATION_SIZE = 500
 RANDOM_POPULATION_SIZE = 20
@@ -8,15 +12,18 @@ MUTATION_RATE = 0.4
 N_GENERATIONS = 10000
 ELITE_SIZE = 10  # Quantos melhores manter
 
-veiculos = load_veiculos_csv()
-locais = load_locais_csv()
+filepath_veiculos = os.path.join(os.path.dirname(__file__), 'data', 'veiculos3.csv')
+veiculos = load_veiculos_csv(filepath=filepath_veiculos)
+filepath_locais = os.path.join(os.path.dirname(__file__), 'data', 'locais-votacao3.csv')
+locais = load_locais_csv(filepath=filepath_locais)
+print(f"Número de veículos: {len(veiculos)}")
+print(f"Número de locais: {len(locais)}")
+
 population = generate_random_population(population_size=POPULATION_SIZE, veiculos=veiculos, locais=locais)
 
 best_fitness_values = []
 best_solutions = []
-# Hereditariedade
-# Variação 
-# Seleção
+
 for generation in range(N_GENERATIONS):
     print(f"Generation {generation}:")
 
@@ -70,3 +77,20 @@ best_solution = best_solutions[best_fitness_values.index(min(best_fitness_values
 best_solution.imprimir_status()
 best_solution.imprimir_rotas()
 best_solution.imprimir_status_resumido()
+
+
+LOCAL_INICIAL_PADRAO = Local(
+    id=0, 
+    demanda=0, 
+    x=-8.770841339543034, 
+    y=-63.9049906945553
+)
+
+# Executa o algoritmo
+rotas = clarke_wright(locais, veiculos, LOCAL_INICIAL_PADRAO)
+
+# Exibe rotas e distâncias
+print("\n\n")
+print("======Clarke-Wright (Savings Algorithm)======\n")
+for veiculo, rota in rotas.items():
+    print(f"Veículo {veiculo.id} – Rota: {[l.id for l in rota]} – Distância total: {calcular_distancia_manhattan_rota(rota)} km")

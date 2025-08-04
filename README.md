@@ -433,7 +433,7 @@ No arquivo main.py está o código do algoritmo genético, com os seguintes pass
 
    * Gera uma população inicial aleatória com 500 genomas.
 
-2. Loop Evolutivo (10.000 gerações)
+2. Loop Evolutivo
 
    Para cada geração:
 
@@ -449,7 +449,7 @@ No arquivo main.py está o código do algoritmo genético, com os seguintes pass
 
       * Mantém os elites.
 
-      * Adiciona 20 novos indivíduos aleatórios.
+      * Adiciona novos indivíduos aleatórios.
 
       Cruzamentos:
 
@@ -463,6 +463,75 @@ No arquivo main.py está o código do algoritmo genético, com os seguintes pass
 
     * Exibe a solução final (status e rotas).
 
+## Análise de Resultados — Algoritmo Genético
+Como uma referência inicial, é apresentada a distância do local inicial para todos os outros locais.
+
+```bash
+python test_distancia_geografica.py 
+
+Distância 0 -> 1686: 3.65 km
+Distância 0 -> 1414: 3.69 km
+Distância 0 -> 1716: 380.96 km
+Distância 0 -> 1082: 0.37 km
+Distância 0 -> 1546: 109.94 km
+Distância 0 -> 1740: 109.16 km
+Distância 0 -> 1643: 271.45 km
+Distância 0 -> 1694: 205.75 km
+Distância 0 -> 1830: 4.60 km
+Distância 0 -> 1597: 407.59 km
+Distância 0 -> 1562: 299.49 km
+Distância 0 -> 1660: 66.78 km
+Distância 0 -> 1449: 7.18 km
+Distância 0 -> 1732: 3.66 km
+Distância 0 -> 1147: 0.96 km
+Distância 0 -> 1775: 381.09 km
+Distância 0 -> 1635: 27.68 km
+Distância 0 -> 1457: 12.67 km
+Distância 0 -> 1392: 1.56 km
+Soma das distâncias: 2298.25 km
+```
+Com base na referência inicial, a soma das distâncias entre o local 0 e os demais é de aproximadamente 2298 km, valor que serve como limite superior para avaliação dos resultados. Distâncias totais abaixo de 407 km ou acima de 2298 km são consideradas inválidas.
+
+### Parâmetros Considerados
+
+- `RANDOM_POPULATION_SIZE`: quantidade de **novos indivíduos aleatórios adicionados a cada geração**, responsável por **manter a diversidade** ao longo da evolução.
+- `MUTATION_RATE`: **taxa de mutação aplicada aos indivíduos**, responsável por **introduzir variações genéticas** e evitar estagnação.
+
+POPULATION_SIZE = 500  
+N_GENERATIONS = 5000  
+ELITE_SIZE = 10
+
+### Tabela de Resultados
+
+| Conf | RANDOM_POPULATION_SIZE | MUTATION_RATE | MAX Fitness | MIN Fitness | Max Distance (Km) | Min Distance (Km) |
+|------|------------------------|---------------|-------------|-------------|-------------------|-------------------|
+|  1   |           20           |     0.4       |      2019   |    **1755** |       1269        |     **1005**      |
+|  2   |            0           |     0.4       |      3043   |      2676   |       2293        |       1926        |
+|  3   |           50           |     0.6       |      2196   |      1871   |       1446        |       1121        |
+|  4   |           30           |     0.2       |      2717   |      1976   |       1967        |       1226        |
+|  5   |           20           |     0.8       |      2004   |      1793   |     **1254**      |       1043        |
+|  6   |           50           |     0.5       |    **1990** |      1823   |       1338        |       1073        |
+
+Para mais detalhes sobre os resultados obtidos, veja [RESULTADOS.md](RESULTADOS.md).
+
+### Análise
+
+| Conf | Avaliação              | Observações |
+|------|------------------------|-------------|
+| **1** | ⭐ Melhor resultado geral | Apresentou o **menor fitness (1755)** e **menor distância mínima (1005 km)**. Excelente equilíbrio entre **diversidade e mutação moderada**. |
+| **5** | Muito bom               | Obteve a **menor distância máxima (1254 km)** e fitness mínimo competitivo. Alta taxa de mutação (0.8) favoreceu exploração. |
+| 6    | Estável                 |Fitness e distância dentro de bom intervalo, com parâmetros equilibrados. Boa robustez, embora sem destaque nos melhores valores. |
+| 3    | Razoável               | `RANDOM_POPULATION_SIZE = 50` com `MUTATION_RATE = 0.6` garantiram variação, mas **aumentaram a instabilidade**, resultando em performance inferior à conf. 6. |
+| 4    | Regular                | Diversidade adequada (`30`) com **mutação baixa (`0.2`)** limitou a capacidade de variação genética. Resultados medianos. |
+| **2** | ❌ Pior desempenho       | Ausência de novos indivíduos (`RANDOM_POPULATION_SIZE = 0`) causou **convergência prematura**. Mesmo com `MUTATION_RATE = 0.4`, apresentou os **piores valores de fitness e distância**. |
+
+RANDOM_POPULATION_SIZE representa novos indivíduos aleatórios inseridos a cada geração (não apenas na população inicial), o papel desse parâmetro muda: ele controla a diversidade contínua do algoritmo ao longo da evolução. Esse fator pode prevenir o prematuro estagnamento da população em ótimos locais.
+
+#### Conclusão
+- A **diversidade contínua (RANDOM_POPULATION_SIZE > 0)** é **essencial para evitar estagnação** e garantir qualidade da solução.
+- **Mutação moderada (0.4 a 0.5)** combinada com diversidade entre 20 e 30 indivíduos aleatórios por geração tende a oferecer o **melhor equilíbrio entre exploração e convergência**.
+- Valores extremos de `MUTATION_RATE` (muito baixos ou muito altos) só funcionam bem quando bem balanceados com a diversidade.
+- A **configuração 1** é a mais eficiente, unindo boa diversidade com mutação adequada, resultando na **melhor solução global**.
 
 
 ## **Compare os resultados obtidos com métodos de solução convencionais**
@@ -490,7 +559,7 @@ Diferenças para o problema apresentado no projeto:
 
 3) Sem restrições de distância.
 
-No algoritmo de Clarke-Wright, a abordagem parte de uma solução inicial trivial:
+No algoritmo de Clarke-Wright([clarke_wright.py](clarke_wright.py)), a abordagem parte de uma solução inicial trivial:
 
 Um veículo para cada local de votação (cliente), indo do depósito (cartório) ao local e retornando.
 
@@ -504,5 +573,63 @@ Optou-se por ajustar o conjuntos de veículos e locais para uma comparação apr
 
 Fonte: https://aswani.ieor.berkeley.edu/teaching/FA15/151/lecture_notes/ieor151_lec18.pdf
 
+### Comparação
+A demanda dos locais foi totalmente atendida em todas as simulações.
 
-Mais informações em [Peguntas e respotas sobre o projeto](PERGUNTAS.md).
+```bash
+======Clarke-Wright (Savings Algorithm)======
+Veículo 1 – Rota: [0, 1120, 1210, 1180, 1279, 1511, 1430, 1392, 1406, 0] – Distância total: 411.49577074717183 km
+Veículo 2 – Rota: [0, 1368, 1457, 1384, 1341, 0] – Distância total: 14.450275115036986 km
+Veículo 3 – Rota: [0, 1112, 1147, 1104, 0] – Distância total: 10.757015728464008 km
+Veículo 0 – Rota: [0, 1465, 1040, 0] – Distância total: 7.650888864298576 km
+
+Total: 444.34
+```
+Subtratindo a última distância, para desconsiderar o retorno para o ponto inicial.
+
+```bash
+Distância 0 -> 1341: 5.16 km
+Distância 0 -> 1406: 7.29 km
+Distância 0 -> 1104: 4.08 km
+Distância 0 -> 1040: 3.20 km
+Total: 19.73
+
+Total: 444.34 - 19.73 = 424
+```
+
+Configuração utilizada:
+
+POPULATION_SIZE = 500  
+RANDOM_POPULATION_SIZE = 20  
+MUTATION_RATE = 0.4  
+N_GENERATIONS = 10000  
+ELITE_SIZE = 10  
+
+Simulação 1
+```bash
+=== STATUS DAS CAPACIDADES E DISTÂNCIAS DOS VEÍCULOS ===
+Distância Total: 254.51 km
+Veículo 0: Capacidade 40, Ociosa 6 ✗, Distância 201.47 km
+Veículo 1: Capacidade 60, Ociosa 8 ✗, Distância 7.00 km
+Veículo 2: Capacidade 60, Ociosa 3 ✗, Distância 28.46 km
+Veículo 3: Capacidade 60, Ociosa 0 ✓, Distância 17.59 km
+
+=== ROTAS DO GENOMA ===
+V0 MASCA 2021 (40): [L1457 (13), L1511 (6), L1210 (3), L1279 (2), L1180 (10)]
+V1 Van16 lugares 2022 (60): [L1040 (14), L1104 (23), L1120 (15)]
+V2 Van16 lugares 2023 (60): [L1112 (16), L1147 (20), L1384 (10), L1430 (3), L1406 (8)]
+V3 Onibus 2021 (60): [L1392 (6), L1465 (20), L1341 (11), L1368 (23)]
+```
+Nessa simulação, cada local foi visitado por apenas um veículo.
+
+Nas simulações 2, 3, 4 e 5 ocorreu de um local ser visitado par mais de um veículo. Para facilitar a comparação, essas simulações foram descartadas.
+
+O resultados de todas as simulações realizadas estão em [COMPARACAO.md](COMPARACAO.md)
+
+### Conclusão
+
+Enquanto o Clarke-Wright apresentou uma distância total ajustada de aproximadamente 424 km, a simulação do algoritmo genético resultou em uma distância total de 254,51 km, uma redução de cerca de 40% na distância percorrida.
+
+Cabe destacar, ainda, que o método Clarke-Wright busca formar rotas que retornem ao ponto inicial, aproximando o último local do depósito. Essa característica, embora coerente com sua formulação original, pode impactar negativamente a comparação, uma vez que no problema analisado o trajeto de retorno não é relevante. Isso reforça a vantagem do algoritmo genético, que está mais alinhado às restrições e objetivos do problema real.
+
+Portanto, a abordagem baseada em algoritmos genéticos se mostra mais adequada ao contexto específico do projeto, oferecendo soluções mais otimizadas do que métodos heurísticos tradicionais como o Clarke-Wright.

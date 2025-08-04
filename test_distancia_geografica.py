@@ -1,4 +1,7 @@
-from distancia_geografica import calcular_distancia, calcular_distancia_manhattan
+import os
+from distancia_geografica import calcular_distancia, calcular_distancia_manhattan, calcular_distancia_manhattan_locais
+from population import load_locais_csv
+from local import Local
 
 def test_distancia_zero():
     assert calcular_distancia(0, 0, 0, 0) == 0
@@ -18,3 +21,24 @@ def test_distancia_entre_dois_locais_conhecidos():
 
 print(calcular_distancia(-8.770841339543034, -63.9049906945553, -8.8037675,-63.8611508))
 print(calcular_distancia_manhattan(-8.770841339543034, -63.9049906945553, -8.8037675, -63.8611508))
+
+
+# Local inicial padrão (Fórum Eleitoral de Porto Velho/RO)
+LOCAL_INICIAL = Local(
+    id=0, 
+    demanda=0, 
+    x=-8.770841339543034, 
+    y=-63.9049906945553
+)
+
+# filepath_locais = os.path.join(os.path.dirname(__file__), 'data', 'locais-votacao3.csv')
+# locais = load_locais_csv(filepath=filepath_locais)
+locais = load_locais_csv()
+
+distancia_total = 0
+for local in locais:
+    distancia = calcular_distancia_manhattan_locais(LOCAL_INICIAL, local)
+    distancia_total += distancia
+    print(f"Distância {LOCAL_INICIAL.id} -> {local.id}: {distancia:.2f} km")
+
+print(f"Soma das distâncias: {distancia_total:.2f} km")    
