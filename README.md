@@ -1,4 +1,4 @@
-# Tech Callenge Fase 2
+# Tech Challenge Fase 2
 Projeto de solução ao [desafio proposto](DESAFIO.md).
 
 ## Projeto  
