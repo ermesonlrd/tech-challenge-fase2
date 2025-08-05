@@ -5,7 +5,7 @@ import itertools
 POPULATION_SIZE = 500
 RANDOM_POPULATION_SIZE = 20
 MUTATION_RATE = 0.4
-N_GENERATIONS = 10000
+N_GENERATIONS = 5000
 ELITE_SIZE = 10  # Quantos melhores manter
 
 veiculos = load_veiculos_csv()
